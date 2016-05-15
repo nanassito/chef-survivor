@@ -6,8 +6,10 @@
 
 
 def assert(object, message)
-  if not object or object.empty?
-    Chef::Application.fatal!(message)
+  # Fuck ruby, leave the parenthesis or it does crap.
+  empty = ([Hash, Array, String].include?(object.class) and object.empty?)
+  if empty or !object
+    throw message
   end
 end
 
@@ -15,13 +17,19 @@ end
 def check_input(object, path)
   path.each do |key|
     object = object[key]
-    assert(object, "Required parameter `#{path.join('.')}`")
+    assert(object, "Required parameter `#{path.join('.')}` (#{object})")
   end
   return object
 end
 
 
 node['survivor'].each do |backup|
+
+  relay_host = check_input(backup, ['relay', 'host'])
+  next unless relay_host == node.name
+
+  include_recipe 'users::sysadmins'
+  include_recipe 'openssh'
 
   email_on_failure = check_input(backup, ['monitoring', 'email_on_failure'])
   next unless email_on_failure
@@ -31,67 +39,52 @@ node['survivor'].each do |backup|
   root = check_input(backup, ['relay', 'directory'])
   max_day_old = check_input(backup, ['monitoring', 'max_day_old'])
   canary = check_input(backup, ['monitoring', 'canary_name'])
+  smtp_options = check_input(backup, ['monitoring', 'smtp'])
   directories = check_input(backup, ['source', 'directories']).collect do |dir|
-    dir.split("/")[1]  # Take only the directory name
+    dir.split("/")[-1]  # Take only the directory name
   end
 
   out_of_date = directories.select do |directory|
-    # Find old canaries
-    path = "/home/#{username}/#{root}#{directory}/#{canary}"
-    canary_time = File.read(path).strip
+    # Select old canaries
+    path = "/home/#{username}/#{root}/#{directory}/#{canary}"
+    begin
+      canary_time = File.read(path).strip
+    rescue Errno::ENOENT
+      canary_time = '2000-01-01T00:00:00-07:00'  # Just something too old
+    end
     age_day =(DateTime.now() - DateTime.strptime(canary_time)).to_i
     age_day > max_day_old
   end
 
   next if out_of_date.empty?
 
+  chef_gem 'mail' do
+    version '2.6.3'
+  end
+
+  # Send an email alert
   user = data_bag_item('users', username)
   assert(user, "Could not find databag `users.#{user}`.")
   assert(user['email'], "User `#{user}` needs an email address.")
-  Pony.mail(
-    :to => user['email'],
-    :from => "chef-client@#{node.fqdn}",
-    :subject => "Out of date backups on #{node.name}",
-    :body => "The following directories have out of date canaries:\n"\
-             " - #{out_of_date.join('\n - ')}\n"\
-             "\n"\
-             "fix it, fix it, fix it!"
-  )
+  directories = out_of_date.join('\n - ')
+  ruby_block 'send email alert' do
+    block do
+      host = node.fqdn
+      smtp_options = smtp_options.inject({}){|m,(k,v)| m[k.to_sym] = v; m}
+      require 'mail'
+      Mail.defaults do
+        delivery_method :smtp, smtp_options
+      end
+      Mail.deliver do
+        to user['email']
+        from 'survivor'
+        subject 'Out of date backups'
+        body "There is something wrong with the backups. Some canaries are "\
+             "too old on #{host}. Here is the list of impacted directories:\n"\
+             "- #{directories}"
+      end
+    end
+    action :run
+  end
 
-end
-
-
-
-
-
-
-
-# Need to find who is going to write where and create the directory ?
-
-
-# 1- Find all backup directories
-# 2- Read all canaries
-# 3- Find outdated canaries
-# 4- Send summary email if there is any problems
-
-search(
-  :node,
-  "rsynced_laptops_target_host:raspi",
-  :filter_result => {
-    'username' => ['rsynced', 'laptops'],
-  },
-).collect do |laptop|
-
-  "/home/#{username}/#{target}#{directories}"
-end
-
-canary_time = File.read("path/to/file").strip
-age_day =(DateTime.now() - DateTime.strptime(canary_time)).to_i
-if age > 60 * 60 * 24
-  Pony.mail(
-    :to => "infra@jaminais.fr",
-    :from => "chef-client@#{node.fqdn}",
-    :subject => "Some backups are outdated",
-    :body => body
-  )
 end

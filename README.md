@@ -1,5 +1,6 @@
 survivor Cookbook
 =================
+
 This configures a multi-host backup infrastructure.
 
 The architecture is to have sources, typically laptops, have a cron job to rsync their data to a close by relay server. Then a remote server will use rsync-snapshot to backup the relay host.

@@ -6,7 +6,7 @@
 
 
 def assert(object, message)
-  if not object or object.empty?
+  if object == nil or [true, false].include?(object) or object.empty?
     throw message
   end
 end
