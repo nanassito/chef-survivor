@@ -81,7 +81,9 @@ node['survivor'].each do |backup|
         subject 'Out of date backups'
         body "There is something wrong with the backups. Some canaries are "\
              "too old on #{host}. Here is the list of impacted directories:\n"\
-             "- #{directories}"
+             "- #{directories}\n"
+             "\n"
+             "Survivor - Relay"
       end
     end
     action :run

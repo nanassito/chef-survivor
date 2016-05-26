@@ -64,13 +64,12 @@ default["survivor"] = []
     :host => "chef_managed_remote_server",
     # Top level directory where to store the data
     :directory => "/data",
-    # Versioning definition
-    :versions => {
-      :hourly_qty => 5,  # Keep 5 hours
-      :daily_qty => 5,  # Keep 5 days
-      :weekly_qty => 2,  # Keep 2 weeks
-      :monthly_qty => 1,  # Keep 1 month
-      :yearly_qty => 0,  # Keep 0 year
-    },
+    # Retention policy for the backups.
+    :retention_policy => {
+      :hours => 6,  # Number of hourly backup ot keep.
+      :days => 5,  # Number of dayly backup ot keep.
+      :months => 2,  # Number of monthly backup ot keep.
+    }
+    # TODO Add more rsnapshot parameters
   }
 }

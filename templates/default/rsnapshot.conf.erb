@@ -1,0 +1,70 @@
+#################################################
+# rsnapshot.conf - rsnapshot configuration file #
+#################################################
+#                                               #
+# THIS IS MANAGED BY CHEF                       #
+#                                               #
+#################################################
+
+
+#######################
+# CONFIG FILE VERSION #
+#######################
+
+config_version	1.2
+
+
+###########################
+# SNAPSHOT ROOT DIRECTORY #
+###########################
+
+# All snapshots will be stored under this root directory.
+#
+snapshot_root	/home/<%= @username %>/<%= @snapshot_root %>/
+
+# If no_create_root is enabled, rsnapshot will not automatically create the
+# snapshot_root directory. This is particularly useful if you are backing
+# up to removable media, such as a FireWire or USB drive.
+#
+no_create_root	1
+
+
+#################################
+# EXTERNAL PROGRAM DEPENDENCIES #
+#################################
+
+<% @dependencies.each do |cmd, path| -%>
+cmd_<%= cmd %>	<%= path %>
+<% end -%>
+
+
+#########################################
+#     BACKUP LEVELS / INTERVALS         #
+# Must be unique and in ascending order #
+# e.g. alpha, beta, gamma, etc.         #
+#########################################
+
+retain	hours	<%= @retention_policy['hours'] %>
+retain	days	<%= @retention_policy['days'] %>
+retain	months	<%= @retention_policy['months'] %>
+
+
+############################################
+#              GLOBAL OPTIONS              #
+# All are optional, with sensible defaults #
+############################################
+
+verbose		3
+loglevel	3
+lockfile	/var/run/rsnapshot/<%= @username %>.pid
+sync_first	1
+ssh_args	-i /home/<%= @username %>/.ssh/id_rsa_timemachine
+exclude	lost+found
+
+
+###############################
+### BACKUP POINTS / SCRIPTS ###
+###############################
+
+# LOCALHOST
+backup	<%= @username %>@<%= @source_ip %>:/<%= @source_dir %>/	./
