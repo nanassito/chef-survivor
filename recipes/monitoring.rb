@@ -9,7 +9,15 @@ chef_gem 'mail' do
 end
 
 
-node['survivor'].each do |backup|
+directory '/var/run/survivor' do
+  owner 'root'
+  group 'root'
+  mode 00777
+end
+
+
+node['survivor'].each_index do |idx|
+  backup = node['survivor'][idx]
 
   relay_host = check_input(backup, ['relay', 'host'])
   timemachine_host = check_input(backup, ['timemachine', 'host'])
@@ -30,6 +38,8 @@ node['survivor'].each do |backup|
   end
 
   alert_method = method(:alert_on_out_of_sync)
+  alert_lock = "/var/run/survivor/monitoring.#{idx}"
+  need_run = read_age_from_file_content(alert_lock) >= 1
   ruby_block "send email alert for survivor #{backup}" do
     block do
       alert_method.call(
@@ -40,6 +50,15 @@ node['survivor'].each do |backup|
       )
     end
     action :run
+    only_if { need_run }
+    notifies :create, "file[#{alert_lock}]", :immediately
+  end
+
+  file alert_lock do
+    content DateTime.now().to_s
+    mode '0600'
+    owner 'root'
+    action :nothing
   end
 
 end

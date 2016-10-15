@@ -27,11 +27,10 @@ class Chef
       assert(user['email'], "User `#{user}` needs an email address.")
       directories = directories.join("\n - ")
       Mail.deliver do
-        # to user['email']  # FIXME: Redirect to the correct user once I solved the spam issue
-        to 'dorian@jaminais.fr'
+        to user['email']
         from 'survivor'
         subject "Out of date backups for #{username} on #{host}."
-        body "#{username.capitalize},\n"\
+        body "Hi #{username.capitalize},\n"\
              "There is something wrong with the backups. Some canaries are "\
              "too old on #{host}. Here is the list of impacted directories:\n"\
              " - #{directories}\n"
@@ -49,15 +48,19 @@ class Chef
       out_of_date = directories.select do |directory|
         # Select old canaries
         path = "#{root}/#{directory}/#{canary}"
-        begin
-          canary_time = File.read(path).strip
-        rescue Errno::ENOENT
-          canary_time = '2000-01-01T00:00:00-07:00'  # Just something too old
-        end
-        age_day =(DateTime.now() - DateTime.strptime(canary_time)).to_i
+        age_day = read_age_from_file_content(path)
         age_day > max_day_old
       end
       return out_of_date
+    end
+
+    def read_age_from_file_content(file_path)
+      begin
+        file_time = File.read(file_path).strip
+      rescue Errno::ENOENT
+        file_time = '2000-01-01T00:00:00-07:00'  # Just something too old
+      end
+      age_day =(DateTime.now() - DateTime.strptime(file_time)).to_i
     end
 
   end
