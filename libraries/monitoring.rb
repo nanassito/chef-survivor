@@ -30,12 +30,13 @@ class Chef
         # to user['email']  # FIXME: Redirect to the correct user once I solved the spam issue
         to 'dorian@jaminais.fr'
         from 'survivor'
-        subject 'Out of date backups'
-        body "There is something wrong with the backups. Some canaries are "\
+        subject "Out of date backups for #{username} on #{host}."
+        body "#{username.capitalize},\n"\
+             "There is something wrong with the backups. Some canaries are "\
              "too old on #{host}. Here is the list of impacted directories:\n"\
              " - #{directories}\n"
              "\n"
-             "Survivor - Relay"
+             "Survivor monitor"
       end
     end
 

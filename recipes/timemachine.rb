@@ -5,7 +5,7 @@
 # Configure rsnapshot and monitor the canary files
 
 
-require 'pathname'
+include_recipe 'survivor::monitoring'
 
 
 # Common set up for all backups
@@ -26,8 +26,7 @@ end
 
 
 # Set up each backup
-node['survivor'].each_index do |idx|
-  backup = node['survivor'][idx]
+node['survivor'].each do |backup|
   timemachine_host = check_input(backup, ['timemachine', 'host'])
   next unless timemachine_host == node.name
 
@@ -38,10 +37,6 @@ node['survivor'].each_index do |idx|
   retention_policy = check_input(backup, ['timemachine', 'retention_policy'])
   relay_ip = get_ip(4, check_input(backup, ['relay', 'host']))
   relay_dir = check_input(backup, ['relay', 'directory'])
-  monitoring_config = check_input(backup, ['monitoring'])
-  source_dirs = check_input(backup, ['source', 'directories']).map do |d|
-    Pathname.new(d).basename.to_s
-  end
 
 
   # Configure rsnapshot
@@ -109,7 +104,7 @@ node['survivor'].each_index do |idx|
 
 
   # Configure cron jobs
-  cron "install timemachine rsync cron for survivor #{idx}" do
+  cron "install timemachine rsync cron for survivor #{backup}" do
     minute  "10-59/5"  # Do not sync on the first 10 minutes of each hour.
     hour    "*"
     day     "*"
@@ -117,7 +112,7 @@ node['survivor'].each_index do |idx|
     user    username
     command "rsnapshot -c #{config_path} sync"
   end
-  cron "install timemachine monthly cron for survivor #{idx}" do
+  cron "install timemachine monthly cron for survivor #{backup}" do
     minute  "1"
     hour    "1"
     day     "1"
@@ -125,7 +120,7 @@ node['survivor'].each_index do |idx|
     user    username
     command "rsnapshot -c #{config_path} months"
   end
-  cron "install timemachine daily cron for survivor #{idx}" do
+  cron "install timemachine daily cron for survivor #{backup}" do
     minute  "3"
     hour    "1"
     day     "*"
@@ -133,26 +128,13 @@ node['survivor'].each_index do |idx|
     user    username
     command "rsnapshot -c #{config_path} days"
   end
-  cron "install timemachine hourly cron for survivor #{idx}" do
+  cron "install timemachine hourly cron for survivor #{backup}" do
     minute  "5"
     hour    "*"
     day     "*"
     month   "*"
     user    username
     command "rsnapshot -c #{config_path} hours"
-  end
-
-  alert_method = method(:alert_on_out_of_sync)
-  ruby_block "send email alert for survivor #{idx}" do
-    block do
-      alert_method.call(
-        username,
-        "/home/#{username}/#{root}/days.0/data",
-        source_dirs,
-        monitoring_config,
-      )
-    end
-    action :run
   end
 
 end
