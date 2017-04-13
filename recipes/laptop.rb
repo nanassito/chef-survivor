@@ -31,6 +31,14 @@ node['survivor'].each_index do |idx|
   target_dir = check_input(backup, ['relay', 'directory'])
   canary = check_input(backup, ['monitoring', 'canary_name'])
 
+  # Create a semaphore file to make sure rsync only executes once at a time
+  semaphore_file = "/var/run/survivor/survivor.laptop.#{idx}"
+  file semaphore_file do
+    action :create_if_missing
+    mode 0555
+    owner username
+  end
+
 
   # Generate a RSA key if needed
   ssh_dir = "/home/#{username}/.ssh"
@@ -81,7 +89,7 @@ node['survivor'].each_index do |idx|
     weekday schedule['weekday']
     user    username
     command [
-      "flock -n /var/run/survivor/survivor.laptop.#{idx}",  # idempotence
+      "flock -n #{semaphore_file}",  # semaphore
       '/usr/bin/nice -n 19',  # nice
       '/usr/bin/ionice -c2 -n7',  # ionice
       '/usr/bin/rsync',
